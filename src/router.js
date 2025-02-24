@@ -1,5 +1,5 @@
 import { h, createContext, cloneElement, toChildArray } from 'preact';
-import { useContext, useMemo, useReducer, useLayoutEffect, useRef, useEffect } from 'preact/hooks';
+import { useContext, useMemo, useReducer, useLayoutEffect, useRef, useEffect, useCallback } from 'preact/hooks';
 
 /**
  * @template T
@@ -89,6 +89,17 @@ export function LocationProvider(props) {
 
 	useLayoutEffect(() => {
 		const handler = (e) => {
+
+			if (e.type === "popstate") {
+				const url = e.target.location.pathname;
+				if (props.url && props.onPopStateChange) {
+					props.onPopStateChange(url);
+					return;
+				}
+				route(url);
+				return;
+			}
+
 			// ignore events the browser takes care of already:
 			if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.button !== 0) {
 				return;

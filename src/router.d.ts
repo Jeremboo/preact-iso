@@ -4,6 +4,7 @@ export function LocationProvider(props: {
 	url?: string;
 	scope?: string | RegExp;
 	children?: ComponentChildren;
+	onPopStateChange?:(url: string) => void;
 }): VNode;
 
 type NestedArray<T> = Array<T | NestedArray<T>>;
