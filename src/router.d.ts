@@ -1,6 +1,7 @@
 import { AnyComponent, ComponentChildren, FunctionComponent, VNode } from 'preact';
 
 export function LocationProvider(props: {
+	url?: string;
 	scope?: string | RegExp;
 	children?: ComponentChildren;
 }): VNode;
@@ -9,7 +10,7 @@ type NestedArray<T> = Array<T | NestedArray<T>>;
 
 /**
  * Check if a URL path matches against a URL path pattern.
- * 
+ *
  * Warning: This is an internal API exported only for testing purpose. API could change in future.
  * @param url - URL path (e.g. /user/12345)
  * @param route - URL pattern (e.g. /user/:id)

@@ -1,5 +1,5 @@
 import { h, createContext, cloneElement, toChildArray } from 'preact';
-import { useContext, useMemo, useReducer, useLayoutEffect, useRef } from 'preact/hooks';
+import { useContext, useMemo, useReducer, useLayoutEffect, useRef, useEffect } from 'preact/hooks';
 
 /**
  * @template T
@@ -8,33 +8,14 @@ import { useContext, useMemo, useReducer, useLayoutEffect, useRef } from 'preact
  */
 
 let push, scope;
+const IS_IN_SCOPE = (url) => {
+	return scope === undefined || (typeof scope == 'string'
+		? url.startsWith(scope)
+		: scope.test(url));
+}
 const UPDATE = (state, url) => {
 	push = undefined;
-	if (url && url.type === 'click') {
-		// ignore events the browser takes care of already:
-		if (url.ctrlKey || url.metaKey || url.altKey || url.shiftKey || url.button !== 0) {
-			return state;
-		}
-
-		const link = url.target.closest('a[href]'),
-			href = link && link.getAttribute('href');
-		if (
-			!link ||
-			link.origin != location.origin ||
-			/^#/.test(href) ||
-			!/^(_?self)?$/i.test(link.target) ||
-			scope && (typeof scope == 'string'
-				? !href.startsWith(scope)
-				: !scope.test(href)
-			)
-		) {
-			return state;
-		}
-
-		push = true;
-		url.preventDefault();
-		url = link.href.replace(location.origin, '');
-	} else if (typeof url === 'string') {
+	if (typeof url === 'string') {
 		push = true;
 	} else if (url && url.url) {
 		push = !url.replace;
@@ -80,7 +61,6 @@ export const exec = (url, route, matches = {}) => {
  * @type {import('./router.d.ts').LocationProvider}
  */
 export function LocationProvider(props) {
-	// @ts-expect-error - props.url is not implemented correctly & will be removed in the future
 	const [url, route] = useReducer(UPDATE, props.url || location.pathname + location.search);
 	if (props.scope) scope = props.scope;
 	const wasPush = push === true;
@@ -98,15 +78,50 @@ export function LocationProvider(props) {
 		};
 	}, [url]);
 
+	useEffect(() => {
+		if (!props.url) return;
+		if (!IS_IN_SCOPE(props.url)) {
+				window.location.assign(location.origin + props.url);
+				return;
+		}
+		route(props.url);
+	}, [props.url]);
+
 	useLayoutEffect(() => {
-		addEventListener('click', route);
-		addEventListener('popstate', route);
+		const handler = (e) => {
+			// ignore events the browser takes care of already:
+			if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.button !== 0) {
+				return;
+			}
+
+			const link = e.target.closest('a[href]'),
+			href = link && link.getAttribute('href');
+			if (
+				!link ||
+				link.origin != location.origin ||     // is domain similar
+				/^#/.test(href) ||                    // is an anchor
+				!/^(_?self)?$/i.test(link.target) ||  // will open in a new tab or window
+				(!props.url && !IS_IN_SCOPE(href))    // is not in scope but only if there is no url given
+			) {
+				return;
+			}
+
+			e.preventDefault();
+
+			if (props.url) return;
+
+			const url = href.replace(location.origin, '');
+			route(url);
+		}
+
+		addEventListener('click', handler);
+		addEventListener('popstate', handler);
 
 		return () => {
-			removeEventListener('click', route);
-			removeEventListener('popstate', route);
+			removeEventListener('click', handler);
+			removeEventListener('popstate', handler);
 		};
-	}, []);
+	}, [props.url]);
 
 	// @ts-ignore
 	return h(LocationProvider.ctx.Provider, { value }, props.children);
